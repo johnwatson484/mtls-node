@@ -8,7 +8,17 @@ cd "${projectRoot}"
 # Create certificates directory
 mkdir -p certificates
 
-# Generate RootCA
+# Generate Root CA
 openssl genpkey -algorithm RSA -out ./certificates/rootCA-private-key.pem
 openssl req -new -key ./certificates/rootCA-private-key.pem -out ./certificates/rootCA.csr -subj "/CN=root"
 openssl x509 -req -days 3650 -in ./certificates/rootCA.csr -signkey ./certificates/rootCA-private-key.pem -out ./certificates/rootCA.crt
+
+# Generate client mTLS certificate
+openssl genpkey -algorithm RSA -out ./certificates/client-private-key.pem
+openssl req -new -key ./certificates/client-private-key.pem -out ./certificates/client.csr -subj "/CN=client"
+openssl x509 -req -days 365 -in ./certificates/client.csr -CA ./certificates/rootCA.crt -CAkey ./certificates/rootCA-private-key.pem -CAcreateserial -out ./certificates/client.crt
+
+# Generate server certificate
+openssl genpkey -algorithm RSA -out ./certificates/server-private-key.pem
+openssl req -new -key ./certificates/server-private-key.pem -out ./certificates/server.csr -subj "/CN=localhost"
+openssl x509 -req -days 365 -in ./certificates/server.csr -CA ./certificates/rootCA.crt -CAkey ./certificates/rootCA-private-key.pem -CAcreateserial -out ./certificates/server.crt
