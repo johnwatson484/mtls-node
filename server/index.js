@@ -24,8 +24,7 @@ const server = Hapi.server({
   },
   router: {
     stripTrailingSlash: true
-  },
-  debug: { request: ['error'] }
+  }
 })
 
 server.route({
