@@ -14,7 +14,7 @@ const agent = new https.Agent({
 })
 
 const { payload } = await Wreck.get('https://localhost:3000', {
-  agents: { https: agent },
+  agent,
   json: true
 })
 
