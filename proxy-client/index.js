@@ -6,7 +6,7 @@ const clientCert = fs.readFileSync('../certificates/client.crt')
 const clientKey = fs.readFileSync('../certificates/client-private-key.pem')
 const rootCA = fs.readFileSync('../certificates/rootCA.crt')
 
-const proxyAgent = new HttpsProxyAgent('https://localhost:3001', {
+const proxyAgent = new HttpsProxyAgent('https://proxy.local:3001', {
   cert: clientCert,
   key: clientKey,
   ca: rootCA,
@@ -15,7 +15,7 @@ const proxyAgent = new HttpsProxyAgent('https://localhost:3001', {
 
 })
 
-const { payload } = await Wreck.get('https://localhost:3000', {
+const { payload } = await Wreck.get('https://server.local:3000', {
   agent: proxyAgent,
   json: true
 })

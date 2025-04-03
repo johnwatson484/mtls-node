@@ -6,7 +6,7 @@ const serverKey = fs.readFileSync('../certificates/server-private-key.pem')
 const rootCA = fs.readFileSync('../certificates/rootCA.crt')
 
 const server = Hapi.server({
-  host: '0.0.0.0',
+  host: 'server.local',
   port: 3000,
   routes: {
     validate: {
