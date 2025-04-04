@@ -53,6 +53,26 @@ This example demonstrates a simple mTLS server and client.
 
 The server listens for incoming connections and requires mTLS authentication from the client.  If the authentication is successful, the server returns the requested data.
 
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant S as Server (3000)
+
+    Note over C,S: TLS Setup with mTLS
+    C->>+S: Client Hello with client cert
+    S-->>C: Server Hello with server cert
+    C->>S: Client Certificate Verification
+    S-->>C: Server Certificate Verification
+    S-->>-C: TLS Connection Established
+
+    Note over C,S: HTTP Communication
+    C->>+S: HTTPS GET /
+    S-->>-C: {"data": "Hello, world!"}
+
+    Note over C,S: Connection Cleanup
+    C->>S: Close Connection
+```
+
 #### Start the server
 
 ```
@@ -78,6 +98,38 @@ If successful, you should see the data returned from the server in the output in
 This example extends example 1 by adding a proxy between the client and server.
 
 The proxy server listens for incoming connections and creates a secure tunnel to the mTLS server. The proxy server also requires mTLS authentication from the client.
+
+```mermaid 
+sequenceDiagram
+    participant C as Client
+    participant P as Proxy (3001)
+    participant T as Server (3000)
+
+    Note over C,T: Initial TLS Setup
+    C->>+P: TLS Handshake with mTLS
+    P-->>-C: TLS Connection Established
+
+    Note over C,T: Tunnel Setup
+    C->>+P: CONNECT localhost:3000
+    P->>+T: TCP Connect
+    T-->>-P: Connected
+    P-->>-C: 200 Connection Established
+
+    Note over C,T: Server Communication
+    C->>+P: TLS Handshake with Server (through tunnel)
+    P->>+T: (forwarded)
+    T-->>-P: TLS Established
+    P-->>-C: (forwarded)
+
+    C->>+P: HTTPS GET /
+    P->>+T: (forwarded)
+    T-->>-P: {"data": "Hello, world!"}
+    P-->>-C: (forwarded)
+
+    Note over C,T: Connection Cleanup
+    C->>P: Close Connection
+    P->>T: Close Connection
+```
 
 #### Start the server
 
