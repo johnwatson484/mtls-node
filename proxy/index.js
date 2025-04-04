@@ -23,7 +23,8 @@ const server = tls.createServer(tlsOptions, (clientSocket) => {
     console.log('Received data:', buffer)
 
     if (buffer.includes('\r\n\r\n')) {
-      const connectMatch = buffer.match(/CONNECT ([^:]+):(\d+) HTTP\/1\.1/)
+      const connectRegex = /CONNECT ([^:]+):(\d+) HTTP\/1\.1/
+      const connectMatch = connectRegex.exec(buffer)
 
       if (connectMatch) {
         const [, host, port] = connectMatch
