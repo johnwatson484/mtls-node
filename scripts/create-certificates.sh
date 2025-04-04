@@ -20,10 +20,10 @@ openssl x509 -req -days 365 -in ./certificates/client.csr -CA ./certificates/roo
 
 # Generate server certificate
 openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:4096 -out ./certificates/server-private-key.pem
-openssl req -new -key ./certificates/server-private-key.pem -out ./certificates/server.csr -subj "/CN=server.local"
+openssl req -new -key ./certificates/server-private-key.pem -out ./certificates/server.csr -subj "/CN=localhost"
 openssl x509 -req -days 365 -in ./certificates/server.csr -CA ./certificates/rootCA.crt -CAkey ./certificates/rootCA-private-key.pem -CAcreateserial -out ./certificates/server.crt
 
 # Generate proxy certificate
 openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:4096 -out ./certificates/proxy-private-key.pem
-openssl req -new -key ./certificates/proxy-private-key.pem -out ./certificates/proxy.csr -subj "/CN=proxy.local"
+openssl req -new -key ./certificates/proxy-private-key.pem -out ./certificates/proxy.csr -subj "/CN=localhost"
 openssl x509 -req -days 365 -in ./certificates/proxy.csr -CA ./certificates/rootCA.crt -CAkey ./certificates/rootCA-private-key.pem -CAcreateserial -out ./certificates/proxy.crt

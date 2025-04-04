@@ -1,127 +1,88 @@
-import fs from 'fs'
-import https from 'https'
-import httpProxy from 'http-proxy'
+import tls from 'tls'
 import net from 'net'
+import fs from 'fs'
 
-// Load certificates
 const proxyCert = fs.readFileSync('../certificates/proxy.crt')
 const proxyKey = fs.readFileSync('../certificates/proxy-private-key.pem')
 const rootCA = fs.readFileSync('../certificates/rootCA.crt')
 
-// Create HTTPS server options
-const serverOptions = {
+const tlsOptions = {
   key: proxyKey,
   cert: proxyCert,
-  ca: rootCA,
+  ca: [rootCA],
   requestCert: true,
   rejectUnauthorized: true
 }
 
-// Create the proxy server
-const proxy = httpProxy.createServer({
-  target: {
-    protocol: 'https:',
-    host: 'server.local',
-    port: 3000
-  },
-  ssl: serverOptions,
-  secure: true,
-  changeOrigin: true,
-  agent: new https.Agent({
-    ca: rootCA
+const server = tls.createServer(tlsOptions, (clientSocket) => {
+  console.log('Client connected to proxy')
+  let buffer = ''
+
+  clientSocket.on('data', (data) => {
+    buffer += data.toString()
+    console.log('Received data:', buffer)
+
+    if (buffer.includes('\r\n\r\n')) {
+      const connectMatch = buffer.match(/CONNECT ([^:]+):(\d+) HTTP\/1\.1/)
+
+      if (connectMatch) {
+        const [, host, port] = connectMatch
+        console.log(`Valid CONNECT request for ${host}:${port}`)
+
+        const targetSocket = net.connect({
+          host,
+          port: parseInt(port, 10)
+        })
+
+        targetSocket.on('connect', () => {
+          console.log('Connected to target server')
+
+          // Send response with explicit content-length
+          const response = [
+            'HTTP/1.1 200 Connection Established',
+            'Connection: keep-alive',
+            'Content-Length: 0',
+            '',
+            ''
+          ].join('\r\n')
+
+          clientSocket.write(response, (err) => {
+            if (err) {
+              console.error('Error sending response:', err)
+              return
+            }
+            console.log('Sent response:', response)
+
+            targetSocket.pipe(clientSocket)
+            clientSocket.pipe(targetSocket)
+            console.log('Established bidirectional tunnel')
+          })
+        })
+
+        targetSocket.on('error', (err) => {
+          console.error('Target Socket Error:', err)
+          clientSocket.end()
+        })
+
+        // Remove the data handler after CONNECT
+        clientSocket.removeAllListeners('data')
+      } else {
+        console.error('Invalid CONNECT request')
+        clientSocket.end('HTTP/1.1 400 Bad Request\r\n\r\n')
+      }
+    }
+  })
+
+  clientSocket.on('error', (err) => {
+    console.error('Client Socket Error:', err)
   })
 })
 
-// Handle proxy errors
-proxy.on('error', (err, req, res) => {
-  console.error('Proxy error:', err)
-
-  // If we have a response object, send an error response
-  if (res && res.writeHead) {
-    res.writeHead(502)
-    res.end('Proxy error: ' + err.message)
-  }
+server.on('tlsClientError', (err) => {
+  console.error('TLS Client Error:', err)
 })
 
-// Create an HTTPS server that will handle both regular requests and CONNECT tunneling
-const server = https.createServer(serverOptions)
-
-// Handle regular HTTP requests
-server.on('request', (req, res) => {
-  console.log(`Regular request: ${req.method} ${req.url}`)
-  proxy.web(req, res)
-})
-
-// Handle CONNECT tunneling for HTTPS
-server.on('connect', (req, socket, head) => {
-  console.log(`CONNECT request for: ${req.url}`)
-
-  // Parse the target from the CONNECT URL (format: hostname:port)
-  const { hostname, port } = new URL(`http://${req.url}`)
-  const targetPort = parseInt(port || 443, 10)
-
-  console.log(`Establishing TCP connection to ${hostname}:${targetPort}`)
-
-  // Set socket options
-  socket.setKeepAlive(true)
-  socket.setNoDelay(true)
-
-  // Create a TCP connection to the target server
-  const targetSocket = net.connect({
-    host: hostname,
-    port: targetPort
-  }, () => {
-    console.log(`TCP connection established to ${hostname}:${targetPort}`)
-
-    // Send the 200 Connection Established response
-    socket.write('HTTP/1.1 200 Connection Established\r\n' +
-                 'Connection: keep-alive\r\n' +
-                 '\r\n')
-
-    // Connect the sockets together to create the tunnel
-    targetSocket.pipe(socket)
-    socket.pipe(targetSocket)
-
-    console.log('CONNECT tunnel established successfully')
-  })
-
-  // Handle target socket events
-  targetSocket.on('error', (err) => {
-    console.error(`Target connection error for ${hostname}:${targetPort}:`, err.message)
-    socket.end()
-  })
-
-  // Handle client socket events
-  socket.on('error', (err) => {
-    console.error('Client socket error:', err.message)
-    targetSocket.end()
-  })
-
-  socket.on('end', () => {
-    console.log('Client socket ended')
-    targetSocket.end()
-  })
-
-  targetSocket.on('end', () => {
-    console.log('Target socket ended')
-    socket.end()
-  })
-
-  socket.on('close', () => {
-    console.log('Client socket closed')
-    targetSocket.destroy()
-  })
-
-  targetSocket.on('close', () => {
-    console.log('Target socket closed')
-    socket.destroy()
-  })
-})
-
-// Start the server
 const PORT = 3001
-server.listen(PORT, 'proxy.local', () => {
-  console.log(`HTTPS Tunneling Proxy Server running on port ${PORT}`)
-  console.log('- Using mutual TLS authentication')
-  console.log('- Handling both regular requests and CONNECT tunneling')
+server.listen(PORT, () => {
+  console.log(`Proxy server running on port ${PORT}`)
 })
