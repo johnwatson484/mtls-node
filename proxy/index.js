@@ -21,7 +21,6 @@ const server = https.createServer({
 })
 
 server.on('connect', (req, clientSocket, head) => {
-  console.log('Received CONNECT request for:', req.url)
   const [targetHost, targetPort] = req.url.split(':')
 
   const targetSocket = net.connect(targetPort, targetHost, () => {
